@@ -688,29 +688,6 @@ const questRows = [];
   try{ if(localStorage.getItem('cssstylist.quest') === '1') setCollapsed(true); }catch{}
 })();
 
-/* the probe: a hidden, same-origin copy of the page that the host is
-   allowed to inspect (the visible preview is patched in place). A FRESH
-   iframe is built for every update — some browsers silently skip reloading
-   a frame whose srcdoc is merely re-assigned, and the quest must never
-   depend on that. */
-let probe = null;
-function makeProbe(css){
-  const p = document.createElement('iframe');
-  p.setAttribute('aria-hidden', 'true');
-  p.style.display = 'none';
-  p.addEventListener('load', () => {
-    const doc = p.contentDocument;
-    if (doc && doc.body) evaluateQuest(doc);
-  });
-  p.srcdoc = buildDoc(css);
-  document.body.appendChild(p);
-  return p;
-}
-function probeCss(css){
-  const old = probe;
-  probe = makeProbe(css);
-  if (old) old.remove();
-}
 /* hex colours are checked in the rgb(...) form getComputedStyle reports */
 function eqCssValue(v){
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim());
@@ -2045,13 +2022,19 @@ function scheduleRun(){
 let pvReady = false, pvQueued = null;
 pv.addEventListener('load', () => {
   pvReady = true;
-  if (pvQueued !== null){ const c = pvQueued; pvQueued = null; applyCssTo(pv.contentDocument, c); }
+  if (pvQueued !== null){
+    const c = pvQueued; pvQueued = null;
+    applyCssTo(pv.contentDocument, c);
+  }
+  evaluateQuest(pv.contentDocument);
 });
 function runPreview(){
   const css = ta.value;
   if (!pvReady){ pvQueued = css; }
-  else applyCssTo(pv.contentDocument, css);
-  probeCss(css);
+  else {
+    applyCssTo(pv.contentDocument, css);
+    evaluateQuest(pv.contentDocument);
+  }
   pvNote.textContent = 'updates as you type';
   pvNote.classList.remove('stale');
   pvNote.removeAttribute('data-stale');
@@ -2308,7 +2291,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.4.1',
+  version: '2.4.2',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2390,9 +2373,8 @@ if (EMBEDDED){
     }, 800);
   });
   $('#ref-img').src = REF_IMAGE;
-  /* both frames load once, from the student's current stylesheet: the
-     preview is then patched in place, and each quest re-check builds a
-     fresh probe frame */
+  /* the preview loads once, from the student's current stylesheet; every
+     later update patches its <style> in place and re-checks the quest */
   pv.srcdoc = buildDoc(ta.value);
   /* first visit (no draft, no seen flag): open the help modal so the task,
      the quest list and the reference button explain themselves up front */
