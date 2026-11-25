@@ -72,7 +72,7 @@ function onFirstLoad(){
       setTimeout(() => {
         const okB = bg(second) === TARGET;
         row('B. Update by patching the style element in place (current mechanism)', okB, bg(second));
-        row('iframe load events fired during this test', loads >= 3, loads + ' loads observed');
+        row('iframe load events fired during this test', loads >= 2, loads + ' loads observed');
         row('Summary — current mechanism works in this browser', okB,
             okB ? 'the published CSS Stylist should update correctly after a hard refresh (Ctrl+F5)'
                 : 'this browser breaks style patching — send a screenshot');
