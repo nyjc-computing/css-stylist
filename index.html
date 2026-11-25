@@ -211,6 +211,9 @@ dialog#help::backdrop{background:rgba(17,24,39,.45)}
 dialog#help header{display:flex;align-items:center;padding:12px 18px;background:#111827;color:#fff;
   border-radius:10px 10px 0 0;position:sticky;top:0}
 dialog#help header h2{margin:0;font-size:15px}
+dialog#help header .dlg-close{margin-left:auto;background:transparent;border:0;color:#9ca3af;
+  font-size:18px;line-height:1;padding:2px 8px;border-radius:4px;cursor:pointer}
+dialog#help header .dlg-close:hover{background:#1f2937;color:#fff}
 dialog#help .bd{padding:12px 18px 18px}
 dialog#help h3{font-size:13.5px;margin:16px 0 4px}
 dialog#help code{font:12.5px var(--mono);background:#f2f4f7;border-radius:3px;padding:0 4px}
@@ -314,7 +317,9 @@ dialog#help a:hover{text-decoration:underline}
 </div>
 
 <dialog id="help">
-  <header><h2>Styling Nyla's portfolio</h2></header>
+  <header><h2>Styling Nyla's portfolio</h2>
+    <button class="dlg-close" id="help-close" title="Close (Esc)" aria-label="Close help">×</button>
+  </header>
   <div class="bd">
     <p>Nyla's page (<b>index.html</b>) is finished and correct — it just looks plain, because its
        stylesheet (<b>style.css</b>) barely exists. Your job: fill in the CSS rules until the preview
@@ -757,6 +762,9 @@ const EMBEDDED = location.pathname.startsWith('/apps/embed/');
 const draftStoreKey = EMBEDDED
   ? 'cssstylist.css.v1.embed.' + location.pathname.split('/').slice(3).join('.')
   : 'cssstylist.css.v1';
+/* first-visit flag: the help modal auto-opens once; the flag is set on any
+   help open (manual or automatic) so it never nags again */
+const seenStoreKey = draftStoreKey + '.seen';
 const LH = 20, PADT = 8, PADL = 12;
 let src = '', lines = [0];
 let tokens = [];               /* CSS syntax tokens for colouring */
@@ -2141,7 +2149,17 @@ listEl.addEventListener('mousemove', e => {
   if (li){ const err = errors[+li.dataset.e]; if (err && err !== activeErr) setActive(err); }
 });
 $('#panel-toggle').addEventListener('click', () => setPanel(!panel.classList.contains('open')));
-$('#help-btn').addEventListener('click', () => $('#help').showModal());
+$('#help-btn').addEventListener('click', openHelp);
+$('#help-close').addEventListener('click', () => $('#help').close());
+function openHelp(){
+  $('#help').showModal();
+  try{ localStorage.setItem(seenStoreKey, '1'); }catch{}   /* a manual open counts as seen too */
+}
+/* clicking the backdrop (outside the box) closes any dialog — the native
+   Esc already does, but it is not discoverable for beginners */
+document.querySelectorAll('dialog').forEach(d => {
+  d.addEventListener('click', e => { if (e.target === d) d.close(); });
+});
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && panel.classList.contains('open') && !$('#help').open) closePanel();
 });
@@ -2269,7 +2287,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.3.4',
+  version: '2.4.0',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2351,6 +2369,14 @@ if (EMBEDDED){
     }, 800);
   });
   $('#ref-img').src = REF_IMAGE;
+  /* first visit (no draft, no seen flag): open the help modal so the task,
+     the quest list and the reference button explain themselves up front */
+  let firstVisit = false;
+  try{ firstVisit = localStorage.getItem(seenStoreKey) === null && localStorage.getItem(draftStoreKey) === null; }catch{}
+  if (firstVisit){
+    try{ localStorage.setItem(seenStoreKey, '1'); }catch{}
+    $('#help').showModal();
+  }
   update();
   runPreview();
   document.documentElement.setAttribute('data-ready', '1');
