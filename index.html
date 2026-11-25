@@ -290,7 +290,7 @@ dialog#help a:hover{text-decoration:underline}
   <div id="split" title="Drag to resize"></div>
   <section id="preview-pane">
     <div class="pane-head">Preview — Nyla's page <span class="note" id="pv-note">updates as you type</span></div>
-    <iframe id="pv" sandbox title="Portfolio preview"></iframe>
+    <iframe id="pv" sandbox="allow-same-origin" title="Portfolio preview"></iframe>
     <button id="ref-fab" title="Hover for a peek at the reference design — click to keep it open" aria-pressed="false">Reference ▣</button>
     <div id="ref-pop" hidden><img id="ref-img" alt="Reference design — one possible finished look"></div>
     <div id="quest">
@@ -704,13 +704,13 @@ function eqCssValue(v){
   return v.trim();
 }
 const normCss = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
+let probeReady = false, probeQueued = null;
 probe.addEventListener('load', () => {
+  probeReady = true;
   const doc = probe.contentDocument;
   if (!doc || !doc.body) return;
   evaluateQuest(doc);
-  /* the same evaluation is idempotent — run it once more shortly after
-     load as insurance against slow style application */
-  setTimeout(() => { if (probe.contentDocument === doc) evaluateQuest(doc); }, 300);
+  if (probeQueued !== null){ const c = probeQueued; probeQueued = null; applyCssTo(probe.contentDocument, c); evaluateQuest(probe.contentDocument); }
 });
 function evaluateQuest(doc){
   let done = 0;
@@ -741,8 +741,18 @@ function evaluateQuest(doc){
   $('#quest-fill').style.width = (100 * done / n) + '%';
   $('#quest').classList.toggle('complete', done === n);
 }
+/* the probe and preview documents load ONCE; every update patches the
+   injected <style> in place. Re-assigning srcdoc per keystroke is not an
+   option: Firefox silently skips the reload for attribute-mutated frames
+   (the preview's styling would apply but the quest would never re-check). */
+function applyCssTo(doc, css){
+  const st = doc && doc.querySelector('style');
+  if (st) st.textContent = css;
+}
 function probeCss(css){
-  probe.srcdoc = buildDoc(css);
+  if (!probeReady){ probeQueued = css; return; }
+  applyCssTo(probe.contentDocument, css);
+  evaluateQuest(probe.contentDocument);
 }
 
 /* ============================================================
@@ -2028,9 +2038,16 @@ function scheduleRun(){
   pvNote.setAttribute('data-stale', '1');
   runTimer = setTimeout(runPreview, 400);
 }
+let pvReady = false, pvQueued = null;
+pv.addEventListener('load', () => {
+  pvReady = true;
+  if (pvQueued !== null){ const c = pvQueued; pvQueued = null; applyCssTo(pv.contentDocument, c); }
+});
 function runPreview(){
-  pv.srcdoc = buildDoc(ta.value);
-  probeCss(ta.value);
+  const css = ta.value;
+  if (!pvReady){ pvQueued = css; }
+  else applyCssTo(pv.contentDocument, css);
+  probeCss(css);
   pvNote.textContent = 'updates as you type';
   pvNote.classList.remove('stale');
   pvNote.removeAttribute('data-stale');
@@ -2369,6 +2386,10 @@ if (EMBEDDED){
     }, 800);
   });
   $('#ref-img').src = REF_IMAGE;
+  /* both frames load once, from the student's current stylesheet; every
+     later update patches their <style> in place (never re-assigns srcdoc) */
+  pv.srcdoc = buildDoc(ta.value);
+  probe.srcdoc = buildDoc(ta.value);
   /* first visit (no draft, no seen flag): open the help modal so the task,
      the quest list and the reference button explain themselves up front */
   let firstVisit = false;
