@@ -1107,7 +1107,8 @@ function matchType(name, toks, idx, st){
         fail(st, k, "'" + rr + "' is not a cursor" + (sug ? " — did you mean '" + sug + "'?" : ''));
         return null;
       } return toks.length; }
-    case 'font': return matchFontShorthand(toks);
+    /* 'font' (the shorthand) is matched in checkProperty, not here — its
+       matcher returns a result object, not the index contract matchNode uses */
     case 'lst': return matchListShorthand(toks, idx, st);
     case 'bg': return matchBackgroundShorthand(toks, idx, st);
     default: return idx + 1;   /* unknown type in a spec: accept */
@@ -1248,6 +1249,39 @@ function matchSpec(toks, specStr){
   return {ok:false, msg:b.msg, tok:toks[Math.min(b.idx, toks.length - 1)]};
 }
 
+/* the font shorthand mixes keywords, a size, an optional /line-height and a
+   family in one value — order-sensitive, so it gets its own matcher */
+const FS_KW = new Set('xx-small x-small small medium large x-large xx-large larger smaller'.split(' '));
+function matchFontShorthand(toks){
+  const kwRe = /^(normal|italic|oblique|small-caps|bold|bolder|lighter|[1-9]00)$/;
+  const seenKw = new Set();
+  let i = 0;
+  while (i < toks.length && kwRe.test(toks[i].raw.toLowerCase())){
+    if (seenKw.has(toks[i].raw.toLowerCase())) return {ok:false, msg:"'" + toks[i].raw + "' appears twice", tok:toks[i]};
+    seenKw.add(toks[i].raw.toLowerCase()); i++;
+  }
+  if (i >= toks.length)
+    return {ok:false, msg:'the font shorthand needs a size and a family, e.g. font: italic 14px Arial', tok:toks[0]};
+  const st = {best:null};
+  const sizeTok = toks[i];
+  const sizeOk = isLenTok(sizeTok.raw, st, i, true) || FS_KW.has(sizeTok.raw.toLowerCase());
+  if (!sizeOk) return {ok:false, msg:st.best ? st.best.msg : "'" + sizeTok.raw + "' is not a font-size", tok:sizeTok};
+  i++;
+  if (i < toks.length && toks[i].raw === '/'){
+    i++;
+    const lh = toks[i];
+    if (!lh) return {ok:false, msg:"missing line-height after '/'", tok:toks[i-1]};
+    if (!(lh.raw.toLowerCase() === 'normal' || numTok(lh.raw) || isLenTok(lh.raw, st, i, true)))
+      return {ok:false, msg:"'" + lh.raw + "' is not a line-height", tok:lh};
+    i++;
+  }
+  if (i >= toks.length)
+    return {ok:false, msg:'the font shorthand also needs a font-family, e.g. font: 14px Arial', tok:toks[i-1]};
+  if (matchFamily(toks, i, st) == null)
+    return {ok:false, msg:st.best ? st.best.msg : 'not a valid font-family', tok:toks[i]};
+  return {ok:true};
+}
+
 /* ============================================================
    INVISIBLE CHARACTERS — NBSP, zero-width spaces, BOM… Copied text
    (slides, websites, chat apps) carries them constantly. JavaScript
@@ -1334,7 +1368,8 @@ function checkProperty(propRaw, valRaw, propRange, valRange, add){
   }
   const toks = cssTokens(v);
   if (toks.length === 1 && ['inherit','initial','unset','revert'].includes(toks[0].raw.toLowerCase())) return;
-  const res = matchSpec(toks, PROPS[prop]);
+  /* 'font' is the one shorthand with its own order-sensitive matcher */
+  const res = prop === 'font' ? matchFontShorthand(toks) : matchSpec(toks, PROPS[prop]);
   if (!res.ok){
     const t = res.tok || toks[0];
     add('err', valRange[0] + t.s, valRange[0] + t.e, 'css-bad-value', "Invalid value for '" + prop + "'",
@@ -1949,7 +1984,7 @@ function jumpTo(e){
 function update(){
   src = ta.value;
   lines = buildLines(src);
-  tokens = tokenizeCss(src);
+  tokens = [];
   errors = [];
   const add = (sev, s, e, code, title, msg, fix, mdn) => {
     const lc = lineCol(s);
@@ -1958,7 +1993,17 @@ function update(){
     errors.push(err);
     return err;
   };
-  lintCssText(src, 0, add, (selText, sAbs, eAbs) => checkSelector(selText, sAbs, eAbs, add));
+  /* a bug in analysis must never freeze the editor: the student's typing
+     has to stay visible, and the preview/quest have to keep updating */
+  try {
+    tokens = tokenizeCss(src);
+    lintCssText(src, 0, add, (selText, sAbs, eAbs) => checkSelector(selText, sAbs, eAbs, add));
+  } catch (e){
+    console.error('CSS Stylist: analysis error (the stylesheet is not lost — fix or Reset to recover)', e);
+    errors = [{sev:'err', s:0, e:1, code:'css-internal', title:'The Stylist hit an internal error checking this stylesheet',
+               msg:'Nothing is lost — your CSS is saved as typed. Please report this to your teacher (a screenshot of this console message helps).',
+               fix:null, line:1, col:1}];
+  }
   errors.sort((a, b) => a.s - b.s);
   renderOverlay();
   renderGutter();
@@ -2224,7 +2269,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.3.3',
+  version: '2.3.4',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));

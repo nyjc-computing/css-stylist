@@ -139,5 +139,15 @@ Handy for e2e tests (and the browser console):
   opens the confirm dialog → Cancel keeps the draft → Confirm restores the
   skeleton (placeholder + empty rules), leaves exactly the css-novalue
   finding, quest back to 0/28, and the saved draft replaced with the skeleton.
+- Invisible characters: a stylesheet whose values carry non-breaking spaces
+  (copy-pasted code) — previously silent — now reports css-invisible-char at
+  the exact character position; NBSPs inside comments don't false-positive;
+  replacing them with normal spaces ticks the quest items.
+- `font` shorthand: `font: italic 14px Arial` lints clean; `font: bold`,
+  `font: red`, `font: 14px` alone report what's missing. (v2.3.3 regression
+  found by a teacher: the v2 port had dropped the shorthand matcher, so
+  typing any `font:` declaration threw mid-lint and froze the overlay, quest
+  and preview — update() is now guarded so an analysis bug can never freeze
+  the editor again.)
 - campus-classroom harness on the final bytes: handshake OK, snapshot contains
   the student CSS, app chrome absent, 0 script tags, nonce stamped.
