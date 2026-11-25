@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSS Stylist — live-update diagnostic</title>
+<style>
+body{font:14px/1.5 system-ui,sans-serif;margin:24px auto;max-width:860px;color:#1f2328}
+h2{margin:0 0 4px}
+p{margin:6px 0}
+table{border-collapse:collapse;width:100%;margin:10px 0}
+td,th{border:1px solid #ccc;padding:6px 10px;text-align:left;vertical-align:top}
+th{background:#f2f4f7}
+.pass{color:#1a7f37;font-weight:700}
+.fail{color:#d1242f;font-weight:700}
+.pending{color:#6a737d}
+code{background:#f2f4f7;padding:0 4px;border-radius:3px;font-family:monospace}
+iframe{width:600px;height:80px;border:1px solid #ccc;display:block;margin:8px 0}
+#f2{margin-bottom:20px}
+</style>
+</head>
+<body>
+<h2>CSS Stylist — live-update diagnostic</h2>
+<p>Open this page in the browser where the quest list isn't updating. It runs
+   each update mechanism the Stylist uses, with a stylesheet that sets
+   <code>body { background-color: #eef2f6; }</code> (computed colour should
+   become <code>rgb(238, 242, 246)</code>).</p>
+<p>Everything should say <b>PASS</b>. A <b>FAIL</b> row names the exact
+   mechanism this browser breaks — send a screenshot of this page.</p>
+<table>
+  <thead><tr><th>Check</th><th>Result</th><th>Observed background</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<p>User agent: <span id="ua"></span></p>
+<h3>Test frame 1 — update by srcdoc reassignment (old mechanism)</h3>
+<iframe id="f1"></iframe>
+<h3>Test frame 2 — update by patching the style element (current mechanism)</h3>
+<iframe id="f2"></iframe>
+<script>
+'use strict';
+const rows = document.getElementById('rows');
+function row(name, ok, observed){
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + name + '</td><td class="' + (ok ? 'pass">PASS' : 'fail">FAIL') + '</td>' +
+                 '<td><code>' + String(observed).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</code></td>';
+  rows.append(tr);
+  document.title = 'diagnostic done — screenshot this page';
+}
+document.getElementById('ua').textContent = navigator.userAgent;
+
+const TARGET = 'rgb(238, 242, 246)';
+const DOC = c => '<!doctype html><html><head><style>body { background-color: ' + c + '; }</style></head><body><p>probe</p></body></html>';
+const bg = f => { try { return getComputedStyle(f.contentDocument.body).backgroundColor; } catch (e) { return 'ERROR: ' + e; } };
+const first = document.getElementById('f1');
+const second = document.getElementById('f2');
+let loads = 0, stage = 0;
+function onFirstLoad(){
+  loads++;
+  if (stage !== 0) return;
+  stage = 1;
+  row('Initial srcdoc load (what you see on opening the app)',
+      bg(first) === 'rgb(255, 255, 255)', bg(first));
+  /* A: the OLD mechanism — re-assign srcdoc and expect a reload */
+  first.srcdoc = DOC(TARGET);
+  setTimeout(() => {
+    const ok = bg(first) === TARGET;
+    row('A. Update by srcdoc reassignment (the old preview + quest mechanism)', ok, bg(first));
+    /* B: the CURRENT mechanism — load once, then patch the style element */
+    second.srcdoc = DOC('rgb(255, 255, 255)');
+    second.addEventListener('load', () => {
+      second.contentDocument.querySelector('style').textContent = 'body { background-color: #eef2f6; }';
+      setTimeout(() => {
+        const okB = bg(second) === TARGET;
+        row('B. Update by patching the style element in place (current mechanism)', okB, bg(second));
+        row('iframe load events fired during this test', loads >= 3, loads + ' loads observed');
+        row('Summary — current mechanism works in this browser', okB,
+            okB ? 'the published CSS Stylist should update correctly after a hard refresh (Ctrl+F5)'
+                : 'this browser breaks style patching — send a screenshot');
+      }, 200);
+    });
+  }, 700);
+}
+first.addEventListener('load', onFirstLoad);
+first.srcdoc = DOC('rgb(255, 255, 255)');
+</script>
+</body>
+</html>
