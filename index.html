@@ -103,6 +103,14 @@ dialog#reset-dialog{width:min(520px,92vw)}
 #ref-pop[hidden]{display:none}
 #ref-pop img{display:block;width:100%}
 
+/* ---- element inspector — hover the preview to identify elements ---- */
+#hover-chip{position:absolute;top:38px;left:12px;z-index:6;background:#111827;color:#f9fafb;
+  border-radius:8px;padding:7px 12px;font-size:12.5px;box-shadow:0 4px 14px rgba(17,24,39,.35);max-width:70%}
+#hover-chip[hidden]{display:none}
+#hover-html{font:13px var(--mono);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hover-html .tg{color:#7dd3fc}
+#hover-sel{font:12px var(--mono);color:#a5b4fc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+
 /* ---- quest tracker — one item per property the page needs ---- */
 #quest{flex:0 0 auto;display:flex;flex-direction:column;border-top:1px solid var(--line);
   background:#fff;max-height:42%;min-height:0}
@@ -293,6 +301,10 @@ dialog#help a:hover{text-decoration:underline}
     <iframe id="pv" sandbox="allow-same-origin" title="Portfolio preview"></iframe>
     <button id="ref-fab" title="Hover for a peek at the reference design — click to keep it open" aria-pressed="false">Reference ▣</button>
     <div id="ref-pop" hidden><img id="ref-img" alt="Reference design — one possible finished look"></div>
+    <div id="hover-chip" hidden>
+      <div id="hover-html"></div>
+      <div id="hover-sel"></div>
+    </div>
     <div id="quest">
       <div class="pane-head">Quest — make the page match the reference
         <span class="note" id="quest-progress">…</span>
@@ -337,6 +349,9 @@ dialog#help a:hover{text-decoration:underline}
           value is missing. The first quest item tells you which colour goes there — fill it in,
           then add declarations of the same shape, <code>property: value;</code>, inside the
           other empty rules.</li>
+      <li><b>Hover anything in the preview</b> to identify it: a chip shows the
+          element's tag, its classes and id — exactly what you would write as a
+          selector in <b>style.css</b>.</li>
       <li>The <b>quest list</b> under the preview ticks off each item once the browser really applies
           it — every item tells you the exact colour and measurement to use; choosing the right
           property for the job is your part.</li>
@@ -2020,14 +2035,45 @@ function scheduleRun(){
   runTimer = setTimeout(runPreview, 400);
 }
 let pvReady = false, pvQueued = null;
+const hoverChip = $('#hover-chip'), hoverHtml = $('#hover-html'), hoverSel = $('#hover-sel');
+let hoverEl = null;
 pv.addEventListener('load', () => {
   pvReady = true;
+  const doc = pv.contentDocument;
+  if (!doc || !doc.body) return;
+  /* element inspector: hover outline + chip, driven from the host (same-origin).
+     The outline never affects quest checks — none of them test outline. */
+  const extras = doc.createElement('style');
+  extras.textContent = '.__cs-hover{outline:2px dashed #e11d48 !important;outline-offset:-2px}';
+  doc.head.append(extras);
+  doc.addEventListener('mouseover', e => {
+    if (hoverEl !== e.target){
+      if (hoverEl) hoverEl.classList.remove('__cs-hover');
+      hoverEl = e.target;
+      hoverEl.classList.add('__cs-hover');
+      hoverDescribe(e.target);
+    }
+    hoverChip.hidden = false;
+  });
+  doc.documentElement.addEventListener('mouseleave', () => {
+    if (hoverEl){ hoverEl.classList.remove('__cs-hover'); hoverEl = null; }
+    hoverChip.hidden = true;
+  });
   if (pvQueued !== null){
     const c = pvQueued; pvQueued = null;
     applyCssTo(pv.contentDocument, c);
   }
   evaluateQuest(pv.contentDocument);
 });
+function hoverDescribe(el){
+  const tag = el.tagName.toLowerCase();
+  const classes = [...el.classList].filter(c => c !== '__cs-hover');   /* our own outline marker */
+  hoverHtml.textContent = '<' + tag
+    + (el.id ? ' id="' + el.id + '"' : '')
+    + (classes.length ? ' class="' + classes.join(' ') + '"' : '') + '>';
+  const sel = (el.id ? '#' + el.id : '') + classes.map(c => '.' + c).join('');
+  hoverSel.textContent = 'CSS: ' + (sel || tag);
+}
 function runPreview(){
   const css = ta.value;
   if (!pvReady){ pvQueued = css; }
@@ -2291,7 +2337,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.4.2',
+  version: '2.5.0',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
