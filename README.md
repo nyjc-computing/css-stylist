@@ -78,7 +78,10 @@ The preview document loads **once** and every update patches the injected
 update was the earlier approach and is **silently skipped by Firefox** for
 attribute-mutated frames — the styling applied but the quest never re-checked.
 Patching is plain DOM manipulation, works identically in every browser, and
-keeps the preview's scroll position. The two photos
+keeps the preview's scroll position. The quest tracker runs its computed-style
+checks **against the preview document itself** (v2.4.2) — an earlier hidden
+"probe" iframe (`display:none`) did not fire load events reliably in Firefox,
+which froze the quest at 0/28. The two photos
 (`robot.jpg`, `timetable-app.png`) cannot load in a sandboxed frame, so small
 inline SVG drawings stand in for them in the preview — the read-only HTML
 keeps the real file names. The page's HTML is trusted and script-free, and
