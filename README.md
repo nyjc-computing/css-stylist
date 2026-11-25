@@ -72,9 +72,13 @@ two-origin harness (reply-first export, per-question draft keys, canonical
 share-link base). The export answers with the student's stylesheet, so a
 submission contains the CSS, not a picture of the editor.
 
-The preview is a fully sandboxed `<iframe>` fed with the fixed HTML and the
-student CSS injected in place of the `<link>` (any `<` in CSS becomes the
-`\3c ` escape first, so a stray `</style>` cannot break out). The two photos
+The preview document loads **once** and every update patches the injected
+`<style>` element in place (`allow-same-origin` lets the app touch it; no
+`allow-scripts`, and the fixed HTML contains none). Re-assigning `srcdoc` per
+update was the earlier approach and is **silently skipped by Firefox** for
+attribute-mutated frames — the styling applied but the quest never re-checked.
+Patching is plain DOM manipulation, works identically in every browser, and
+keeps the preview's scroll position. The two photos
 (`robot.jpg`, `timetable-app.png`) cannot load in a sandboxed frame, so small
 inline SVG drawings stand in for them in the preview — the read-only HTML
 keeps the real file names. The page's HTML is trusted and script-free, and
