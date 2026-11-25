@@ -109,7 +109,7 @@ dialog#reset-dialog{width:min(520px,92vw)}
 #quest.collapsed #quest-bar,#quest.collapsed #quest-list{display:none}
 #quest-bar{flex:0 0 auto;height:4px;background:#e6e9ee;margin:6px 12px 0;border-radius:2px;overflow:hidden}
 #quest-fill{height:100%;width:0;background:var(--ok);transition:width .35s}
-#quest-progress{color:var(--dim)}
+#quest-progress{color:var(--dim);font-weight:700}
 #quest.complete #quest-progress{color:var(--ok);font-weight:700}
 #quest-list{flex:1;overflow:auto;margin:0;padding:4px 0;list-style:none;font-size:12.5px;min-height:0}
 #quest-list li{display:flex;gap:8px;padding:2px 14px;align-items:baseline}
@@ -117,6 +117,8 @@ dialog#reset-dialog{width:min(520px,92vw)}
 #quest-list li.pending{color:var(--dim)}
 #quest-list li.done{color:var(--ok)}
 #quest-list li.done .tick{color:var(--ok);font-weight:700}
+#quest-list li.flash{animation:qflash 1s}
+@keyframes qflash{0%,60%{background:#d9f2e3}100%{background:transparent}}
 #quest-list .q-val{font:12px var(--mono);white-space:nowrap}
 
 #editor{flex:1;display:flex;min-height:0;position:relative}
@@ -699,6 +701,12 @@ const normCss = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
 probe.addEventListener('load', () => {
   const doc = probe.contentDocument;
   if (!doc || !doc.body) return;
+  evaluateQuest(doc);
+  /* the same evaluation is idempotent — run it once more shortly after
+     load as insurance against slow style application */
+  setTimeout(() => { if (probe.contentDocument === doc) evaluateQuest(doc); }, 300);
+});
+function evaluateQuest(doc){
   let done = 0;
   QUEST.forEach((q, i) => {
     const el = doc.querySelector(q.sel);
@@ -709,16 +717,24 @@ probe.addEventListener('load', () => {
         if (normCss(cs[prop]) !== normCss(eqCssValue(want))){ ok = false; break; }
       }
     }
+    const wasDone = questRows[i].classList.contains('done');
     questRows[i].classList.toggle('done', ok);
     questRows[i].classList.toggle('pending', !ok);
     questRows[i].querySelector('.tick').textContent = ok ? '✓' : '◇';
+    if (ok && !wasDone){
+      /* completion status must be unmissable: flash the row and bring it
+         into view, even if the quest pane is scrolled elsewhere */
+      questRows[i].classList.add('flash');
+      setTimeout(() => questRows[i].classList.remove('flash'), 1000);
+      questRows[i].scrollIntoView({ block: 'nearest' });
+    }
     if (ok) done++;
   });
   const n = QUEST.length;
   $('#quest-progress').textContent = done + ' / ' + n + (done === n ? ' — complete!' : '');
   $('#quest-fill').style.width = (100 * done / n) + '%';
   $('#quest').classList.toggle('complete', done === n);
-});
+}
 function probeCss(css){
   probe.srcdoc = buildDoc(css);
 }
@@ -2158,7 +2174,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.3.0',
+  version: '2.3.1',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
