@@ -2072,7 +2072,7 @@ function hoverDescribe(el){
     + (el.id ? ' id="' + el.id + '"' : '')
     + (classes.length ? ' class="' + classes.join(' ') + '"' : '') + '>';
   const sel = (el.id ? '#' + el.id : '') + classes.map(c => '.' + c).join('');
-  hoverSel.textContent = 'CSS: ' + (sel || tag);
+  hoverSel.textContent = 'CSS selector: ' + (sel || tag);
 }
 function runPreview(){
   const css = ta.value;
@@ -2337,7 +2337,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.5.0',
+  version: '2.5.1',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
