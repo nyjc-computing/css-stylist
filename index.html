@@ -361,6 +361,7 @@ dialog#help a:hover{text-decoration:underline}
       <tr><td>Invalid value</td><td><code>margin: 20</code> (missing <code>px</code>), <code>color: navy blue</code>, <code>font-size: big</code></td></tr>
       <tr><td>Selector matches nothing</td><td><code>.sectoin { … }</code> — a typo'd class or id selects zero elements, silently</td></tr>
       <tr><td>Invalid selector</td><td><code>.section!! { … }</code> — the browser drops the entire rule</td></tr>
+      <tr><td>Invisible characters</td><td>a non-breaking space copied from a slide or chat app looks like a space but isn't — the browser drops the declaration silently; the Stylist points right at it</td></tr>
     </table>
     <h3>A beginner's CSS toolbox</h3>
     <p style="margin-top:2px">Everything the quest needs is in here — click a property to open its MDN page:</p>
@@ -1247,6 +1248,33 @@ function matchSpec(toks, specStr){
   return {ok:false, msg:b.msg, tok:toks[Math.min(b.idx, toks.length - 1)]};
 }
 
+/* ============================================================
+   INVISIBLE CHARACTERS — NBSP, zero-width spaces, BOM… Copied text
+   (slides, websites, chat apps) carries them constantly. JavaScript
+   \s treats them as whitespace, so the value LOOKS clean to the
+   linter, but the CSS grammar does not accept them: the browser
+   drops the declaration silently — no error, style never applies.
+   ============================================================ */
+const INVISIBLE_RE = /[\u00A0\u000B\u1680\u2000-\u200F\u2028\u2029\u202F\u205F\u3000\uFEFF]/;
+function invisibleName(cpHex){
+  const h = cpHex.toUpperCase();
+  if (h === 'A0') return 'a non-breaking space (U+00A0)';
+  if (h === 'B') return 'a vertical tab (U+000B)';
+  if (h === 'FEFF') return 'a byte-order mark (U+FEFF)';
+  if (h >= '2000' && h <= '200A') return 'an unusual space character (U+' + h + ')';
+  if (h >= '200B' && h <= '200D') return 'a zero-width character (U+' + h + ')';
+  if (h === '2028' || h === '2029') return 'a line/paragraph separator (U+' + h + ')';
+  if (h === '202F') return 'a narrow no-break space (U+202F)';
+  if (h === '205F') return 'a special space (U+205F)';
+  if (h === '3000') return 'an ideographic space (U+3000)';
+  if (h === '1680') return 'a special space (U+1680)';
+  return 'an invisible character (U+' + h + ')';
+}
+function firstInvisible(s){
+  const m = INVISIBLE_RE.exec(s);
+  return m ? { index: m.index, name: invisibleName(m[0].codePointAt(0).toString(16)) } : null;
+}
+
 function checkProperty(propRaw, valRaw, propRange, valRange, add){
   const prop = propRaw.trim().toLowerCase();
   if (!prop){
@@ -1262,6 +1290,19 @@ function checkProperty(propRaw, valRaw, propRange, valRange, add){
     add('err', valRange[0], valRange[1], 'css-novalue', "'" + prop + "' has no value",
         'The property is there but the value after ":" is empty.',
         'Write a value after the colon — e.g. ' + prop + ': ' + exampleVal + ';', prop in PROPS ? [[prop, MDN(prop)]] : null);
+    return;
+  }
+  /* copied text carries invisible characters that the CSS grammar rejects
+     while the linter's whitespace handling would wave them through — this
+     finding is why the preview "ignores" a rule that looks perfectly fine */
+  const invProp = firstInvisible(propRaw), invVal = firstInvisible(valRaw);
+  if (invProp || invVal){
+    const inv = invProp || invVal;
+    const where = invProp ? 'in the property name' : 'in the value';
+    const at = (invProp ? propRange[0] : valRange[0]) + inv.index;
+    add('err', at, at + 1, 'css-invisible-char', 'Invisible character ' + inv.name,
+        'There is ' + inv.name + ' here ' + where + '. It looks like a space (or like nothing at all), but CSS does not treat it as one — the browser drops this whole declaration, so the style never applies. Text copied from slides, websites or chat apps often carries these.',
+        'Delete it and type a normal space.', prop in PROPS ? [[prop, MDN(prop)]] : null);
     return;
   }
   if (/^-(webkit|moz|ms|o)-/.test(prop)) return;    /* vendor prefixes: accepted as-is */
@@ -1494,6 +1535,15 @@ function checkSelector(selText, sAbs, eAbs, add){
     if (!part || !/[\w.#*[]/.test(part)) continue;      /* structural problems are reported above */
     if (hasTopLevelColon(part)) continue;
     const lead = sAbs + ps + (rawPart.length - rawPart.trimStart().length);
+    const invSel = firstInvisible(part);
+    if (invSel){
+      const at = lead + invSel.index;
+      add('err', at, at + 1, 'css-invisible-char', 'Invisible character in this selector',
+          'There is ' + invSel.name + ' inside the selector. It looks like a space but CSS does not treat it as one, so the browser rejects the whole rule and none of the declarations apply. Text copied from slides, websites or chat apps often carries these.',
+          'Delete it and type a normal space.',
+          [['CSS selectors', MDN('CSS_selectors')]]);
+      continue;
+    }
     let matches = 0, invalid = false;
     try{ matches = styleDoc.querySelectorAll(part).length; }
     catch{ invalid = true; }
@@ -2174,7 +2224,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.3.1',
+  version: '2.3.2',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
