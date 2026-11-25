@@ -66,8 +66,8 @@ main{flex:1;display:flex;min-height:0;min-width:0}
 #htmlview{flex:1;display:flex;overflow:auto;background:#fff;margin:0;padding:8px 16px 8px 6px}
 #htmlview[hidden]{display:none}
 #html-code{margin:0;padding:0;counter-reset:ln}
-#html-code li{font:14px/22px var(--mono);list-style:none;position:relative;
-  padding-left:44px;white-space:pre;min-height:22px}
+#html-code li{font:14px/20px var(--mono);list-style:none;position:relative;
+  padding-left:44px;white-space:pre;min-height:20px}
 #html-code li::before{content:counter(ln);counter-increment:ln;position:absolute;left:0;
   width:34px;text-align:right;color:#9aa4b2}
 
@@ -124,16 +124,16 @@ dialog#reset-dialog{width:min(520px,92vw)}
 #editor{flex:1;display:flex;min-height:0;position:relative}
 #gutter{flex:0 0 52px;position:relative;overflow:hidden;background:#fafbfc;
   border-right:1px solid var(--line);user-select:none;cursor:pointer}
-#gutter-in{position:absolute;left:0;right:0;top:0;padding:8px 0;font:14px/22px var(--mono)}
-.ln{position:relative;height:22px;color:#9aa4b2;text-align:right;padding-right:10px}
-.ln .dot{position:absolute;left:7px;top:6px;width:9px;height:9px;border-radius:50%}
+#gutter-in{position:absolute;left:0;right:0;top:0;padding:8px 0;font:14px/20px var(--mono)}
+.ln{position:relative;height:20px;color:#9aa4b2;text-align:right;padding-right:10px}
+.ln .dot{position:absolute;left:7px;top:5px;width:9px;height:9px;border-radius:50%}
 .dot.err{background:var(--err)} .dot.warn{background:var(--warn)} .dot.info{background:var(--info)}
 .ln.err{color:var(--err);font-weight:700}
 .ln.warn{color:var(--warn)} .ln.info{color:var(--info)}
 
 #codebox{flex:1;position:relative;min-width:0;overflow:hidden}
 #hl,#code{position:absolute;inset:0;margin:0;border:0;padding:8px 12px;
-  font:14px/22px var(--mono);tab-size:4;white-space:pre;letter-spacing:0}
+  font:14px/20px var(--mono);tab-size:4;white-space:pre;letter-spacing:0}
 #hl{pointer-events:none;z-index:0;overflow:hidden;color:var(--ink);min-width:100%;min-height:100%}
 #code{z-index:1;display:block;background:transparent;color:transparent;
   -webkit-text-fill-color:transparent;caret-color:#111;resize:none;outline:none;
@@ -757,7 +757,7 @@ const EMBEDDED = location.pathname.startsWith('/apps/embed/');
 const draftStoreKey = EMBEDDED
   ? 'cssstylist.css.v1.embed.' + location.pathname.split('/').slice(3).join('.')
   : 'cssstylist.css.v1';
-const LH = 22, PADT = 8, PADL = 12;
+const LH = 20, PADT = 8, PADL = 12;
 let src = '', lines = [0];
 let tokens = [];               /* CSS syntax tokens for colouring */
 let errors = [];               /* {sev,s,e,code,title,msg,fix,line,col} */
@@ -2224,7 +2224,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.3.2',
+  version: '2.3.3',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
