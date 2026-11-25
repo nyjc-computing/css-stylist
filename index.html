@@ -689,11 +689,28 @@ const questRows = [];
 })();
 
 /* the probe: a hidden, same-origin copy of the page that the host is
-   allowed to inspect (the visible preview stays opaque and sandboxed) */
-const probe = document.createElement('iframe');
-probe.setAttribute('aria-hidden', 'true');
-probe.style.display = 'none';
-document.body.appendChild(probe);
+   allowed to inspect (the visible preview is patched in place). A FRESH
+   iframe is built for every update — some browsers silently skip reloading
+   a frame whose srcdoc is merely re-assigned, and the quest must never
+   depend on that. */
+let probe = null;
+function makeProbe(css){
+  const p = document.createElement('iframe');
+  p.setAttribute('aria-hidden', 'true');
+  p.style.display = 'none';
+  p.addEventListener('load', () => {
+    const doc = p.contentDocument;
+    if (doc && doc.body) evaluateQuest(doc);
+  });
+  p.srcdoc = buildDoc(css);
+  document.body.appendChild(p);
+  return p;
+}
+function probeCss(css){
+  const old = probe;
+  probe = makeProbe(css);
+  if (old) old.remove();
+}
 /* hex colours are checked in the rgb(...) form getComputedStyle reports */
 function eqCssValue(v){
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim());
@@ -704,14 +721,6 @@ function eqCssValue(v){
   return v.trim();
 }
 const normCss = s => s.replace(/\s+/g, ' ').trim().toLowerCase();
-let probeReady = false, probeQueued = null;
-probe.addEventListener('load', () => {
-  probeReady = true;
-  const doc = probe.contentDocument;
-  if (!doc || !doc.body) return;
-  evaluateQuest(doc);
-  if (probeQueued !== null){ const c = probeQueued; probeQueued = null; applyCssTo(probe.contentDocument, c); evaluateQuest(probe.contentDocument); }
-});
 function evaluateQuest(doc){
   let done = 0;
   QUEST.forEach((q, i) => {
@@ -748,11 +757,6 @@ function evaluateQuest(doc){
 function applyCssTo(doc, css){
   const st = doc && doc.querySelector('style');
   if (st) st.textContent = css;
-}
-function probeCss(css){
-  if (!probeReady){ probeQueued = css; return; }
-  applyCssTo(probe.contentDocument, css);
-  evaluateQuest(probe.contentDocument);
 }
 
 /* ============================================================
@@ -2304,7 +2308,7 @@ $('#reset-dialog-confirm').addEventListener('click', () => {
    behaves exactly like typing (lint, preview and autosave react).
    ============================================================ */
 window.cssStylist = {
-  version: '2.4.0',
+  version: '2.4.1',
   setCss(css){
     ta.value = String(css);
     ta.dispatchEvent(new Event('input', { bubbles: true }));
@@ -2386,10 +2390,10 @@ if (EMBEDDED){
     }, 800);
   });
   $('#ref-img').src = REF_IMAGE;
-  /* both frames load once, from the student's current stylesheet; every
-     later update patches their <style> in place (never re-assigns srcdoc) */
+  /* both frames load once, from the student's current stylesheet: the
+     preview is then patched in place, and each quest re-check builds a
+     fresh probe frame */
   pv.srcdoc = buildDoc(ta.value);
-  probe.srcdoc = buildDoc(ta.value);
   /* first visit (no draft, no seen flag): open the help modal so the task,
      the quest list and the reference button explain themselves up front */
   let firstVisit = false;
