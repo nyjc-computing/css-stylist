@@ -81,7 +81,7 @@ comes from html-doctor (which was developed as part of
 html-doctor's dormant CSS validator (its `LINT_CSS = false` lesson) was
 extracted, fixed and switched on here.
 
-**Live:** https://nyjc-computing.github.io/css-stylist/ (after publishing)
+**Live:** https://nyjc-computing.github.io/css-stylist/
 
 ## The page, the quest and the target look
 
