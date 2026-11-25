@@ -31,6 +31,11 @@ findings), but the stylesheet is the editable file and the page is fixed.
   when the browser really applies that exact declaration (a near-miss shade
   or a missing unit stays unticked). Progress bar
   and collapse state persist; the tracker completes at 28/28.
+- **Element inspector.** Hovering anything in the preview shows what it is:
+  a dashed outline marks the element and a chip names it — its tag, classes
+  and id, both as the HTML opening tag and as the CSS selector to write
+  (`.section`, `#intro`). This is the bridge from "the page I see" to "the
+  selector I write".
 - **First-visit onboarding.** With no saved data in the browser, the help
   modal opens by itself once (a seen flag, namespaced per question when
   embedded, keeps it from nagging again; opening the ? manually counts too).
