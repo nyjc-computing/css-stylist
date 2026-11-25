@@ -31,6 +31,11 @@ findings), but the stylesheet is the editable file and the page is fixed.
   when the browser really applies that exact declaration (a near-miss shade
   or a missing unit stays unticked). Progress bar
   and collapse state persist; the tracker completes at 28/28.
+- **First-visit onboarding.** With no saved data in the browser, the help
+  modal opens by itself once (a seen flag, namespaced per question when
+  embedded, keeps it from nagging again; opening the ? manually counts too).
+  The modal has a × in its header, closes on Esc, and closes when you click
+  outside it — as do the share and reset dialogs.
 - **A reset button for worst cases.** The draft autosaves to the browser, so
   a student who mangles their stylesheet irrecoverably needs a way back:
   **Reset** (top right) restores the original skeleton after an explicit
